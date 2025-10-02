@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Price Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #e5e7eb; }
+        .custom-select:focus, .custom-input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+<div class="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden transform transition duration-500 hover:shadow-3xl">
+    <header class="bg-gray-800 text-white p-6 md:p-8 text-center">
+        <h1 class="text-3xl font-extrabold tracking-wide">🚗 Car Price Predictor</h1>
+        <p class="mt-1 text-gray-300 text-sm">Get an accurate estimate for your used car in minutes.</p>
+    </header>
+
+    <div class="p-6 md:p-10">
+        <p class="mb-6 text-gray-600 text-center border-b pb-4">Please fill in all the required details below.</p>
+
+        <form id="prediction-form" class="space-y-6">
+
+            <!-- Company & Model -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="company" class="block text-sm font-semibold text-gray-700 mb-1">Select Manufacturer</label>
+                    <select id="company" name="company" class="custom-select w-full py-3 px-4 border-gray-300 rounded-lg">
+                        {% for company in companies %}
+                        <option value="{{ company }}">{{ company }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="car_model" class="block text-sm font-semibold text-gray-700 mb-1">Select Model</label>
+                    <select id="car_model" name="car_model" class="custom-select w-full py-3 px-4 border-gray-300 rounded-lg" disabled>
+                        <option value="">Select Model</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Year & Fuel -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="year" class="block text-sm font-semibold text-gray-700 mb-1">Select Year</label>
+                    <select id="year" name="year" class="custom-select w-full py-3 px-4 border-gray-300 rounded-lg">
+                        {% for y in years %}
+                        <option value="{{ y }}">{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="fuel_type" class="block text-sm font-semibold text-gray-700 mb-1">Select Fuel Type</label>
+                    <select id="fuel_type" name="fuel_type" class="custom-select w-full py-3 px-4 border-gray-300 rounded-lg">
+                        {% for fuel in fuel_types %}
+                        <option value="{{ fuel }}">{{ fuel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- KMs -->
+            <div>
+                <label for="kms_driven" class="block text-sm font-semibold text-gray-700 mb-1">Kilometres Driven</label>
+                <input type="number" id="kms_driven" name="kms_driven" placeholder="e.g., 50000" min="0" required
+                       class="custom-input w-full py-3 px-4 border-gray-300 rounded-lg">
+            </div>
+
+            <!-- Result -->
+            <div id="prediction-result" class="mt-8 p-5 bg-blue-50 rounded-xl border border-blue-200 text-center hidden">
+                <h3 class="text-lg font-semibold text-gray-800">Estimated Price:</h3>
+                <p class="text-4xl font-extrabold text-blue-600 mt-2" id="predicted-price-value">Calculating...</p>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="w-full py-3 px-4 rounded-xl shadow-lg text-lg font-bold text-white bg-blue-600 hover:bg-blue-700">
+                Predict Price
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+const companySelect = document.getElementById('company');
+const carModelSelect = document.getElementById('car_model');
+const form = document.getElementById('prediction-form');
+const resultDiv = document.getElementById('prediction-result');
+const resultValue = document.getElementById('predicted-price-value');
+
+// Fetch models when company changes
+companySelect.addEventListener('change', async () => {
+    const company = companySelect.value;
+    carModelSelect.innerHTML = '<option>Loading...</option>';
+    carModelSelect.disabled = true;
+
+    if(company === 'Select Company') {
+        carModelSelect.innerHTML = '<option>Select Model</option>';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/car_models?company=${encodeURIComponent(company)}`);
+        const data = await res.json();
+        carModelSelect.innerHTML = '<option value="">Select Model</option>';
+        data.car_models.forEach(model => {
+            carModelSelect.innerHTML += `<option value="${model}">${model}</option>`;
+        });
+        carModelSelect.disabled = false;
+    } catch (err) {
+        console.error(err);
+        carModelSelect.innerHTML = '<option>Error loading models</option>';
+    }
+});
+
+// Form submit -> AJAX predict
+form.addEventListener('submit', async e => {
+    e.preventDefault();
+    resultDiv.classList.remove('hidden');
+    resultValue.textContent = 'Calculating...';
+
+    const formData = new FormData(form);
+    try {
+        const res = await fetch('/predict', { method: 'POST', body: formData });
+        const data = await res.json();
+        if(data.error) {
+            resultValue.textContent = data.error;
+        } else {
+            resultValue.textContent = data.prediction;
+        }
+    } catch (err) {
+        resultValue.textContent = 'Network error.';
+    }
+});
+</script>
+
+</body>
+</html>
